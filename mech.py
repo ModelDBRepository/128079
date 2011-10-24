@@ -340,6 +340,8 @@ def init_g(cell, settings):
         (settings.gna_soma - fsigm(-dist_x_dend, settings.gna_soma-gnabar_distal_dend, 
                             dend_50, dend_slope))*10.0
     gna_y_axon = bind_dens(dist_x_axon, plsq_g)*10.0
+    gna_mean_prox = quad(bind_dens, int_a, int_b, args=(plsq_g,), 
+                         limit=100)[0] / float(int_b-int_a)
     if gDebug:
         sys.stdout.write("Mean density in proximal axon: %f\n" %
                          (quad(bind_dens, int_a, int_b, args=(plsq_g,), 
@@ -424,4 +426,29 @@ def init_g(cell, settings):
             seg.KIn.scale_a  = settings.gk_scale_axon
             seg.KIn.scale_i  = 1.0e-9
 
-    return dist_x, gna_y, plsq_g
+    return dist_x, gna_y, plsq_g, gna_mean_prox
+
+
+def gna_per_area(cell):
+    """
+    Compute actual density:
+    If determined according to our experimental data and methods,
+    mean \bar{g}_{Na} in the proximal axon is 940 pS um^{2}. This 
+    is not necessarily the same as the summed \bar{g}_{Na} divided 
+    by the summed membrane area along the proximal axon.
+    Thanks to Steffen Platschek for pointing out this discrepancy.
+    """
+
+    # set distance origin to axon-soma border:
+    ap.h.distance(0,0.0, sec=cell.somaBorderLoc.secRef.sec)
+
+    area = 0.0
+    G = 0.0
+    for sec in cell.axo:
+        for seg in sec:
+            dist = ap.h.distance(seg.x, sec = sec)
+            if 0 <= dist <= 40:
+                G += seg.na8st.gbar * ap.h.area(seg.x, sec=sec)
+                area += ap.h.area(seg.x, sec=sec)
+    
+    return G/area

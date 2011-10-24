@@ -72,7 +72,14 @@ def run(cell, settings, ic=None, tstop=5, plot=False, print_results=False):
 
     mech.init_mech(cell, settings) 
     mech.init_rates(cell, settings) 
-    gna_x, gna_y, gna_peak = mech.init_g(cell, settings)
+
+    gna_x, gna_y, gna_peak, gna_mean_prox = mech.init_g(cell, settings)
+    gna_mean_prox_special = mech.gna_per_area(cell)
+    print gna_mean_prox
+    sys.stdout.write("Mean density in point measurements from proximal axon: %f pS/um^2\n" %
+                     (gna_mean_prox*10.0))
+    sys.stdout.write("Mean total conductance per total membrane area in proximal axon: %f pS/um^2\n" %
+                     (gna_mean_prox_special*10.0))
 
     h.tstop = tstop
     h.init()

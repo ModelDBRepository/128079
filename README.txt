@@ -43,3 +43,11 @@ $ python ap.py
 # Voltage-clamp simulation comparing Q-Matrix and NEURON results:
 $ python qmatrix.py
 
+CHANGELOG
+
+na8st-1.1 (1.1)
+
+  * Pointing out discrepancies in \bar{g}_{Na} computations.
+    Thanks to Steffen Platschek for pointing this out.
+
+ -- Christoph Schmidt-Hieber <c.schmidt-hieber@ucl.ac.uk>  Sun, 20 Oct 2011 13:41:23 +0000
