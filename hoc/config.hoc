@@ -1,0 +1,39 @@
+// ----------------------------------------------------------------------------
+// config.hoc
+// Configuration settings
+//
+// 2007-06-28, Christoph Schmidt-Hieber, University of Freiburg
+//
+// accompanies the publication:
+// Schmidt-Hieber C, Jonas P, Bischofberger J (2007)
+// Subthreshold Dendritic Signal Processing and Coincidence Detection 
+// in Dentate Gyrus Granule Cells. J Neurosci 27:8430-8441
+//
+// send bug reports and suggestions to christoph.schmidt-hieber@uni-freiburg.de
+// ----------------------------------------------------------------------------
+
+verbose    =  1     // 0: no output
+                    // 1: print essential information during simulations (default)
+
+debug_mode =  0     // 0: no debug information (default)
+                    // 1: show debug information
+
+accuracy   =  0     // 0: compromise between accuracy and simulation speed (default)
+                    // 1: Obsessively high level of accuracy 
+                    //    Note that some simulations may take hours to run
+                    //    with this setting.
+
+celsius    = 24     // This is to roughly account for the effects of temperature on
+q10_g_pas  =  1.98  // simulations. Passive membrane parameters (Ra, cm, g_pas) 
+q10_Ra     =  0.80  // have no built-in temperature dependence. Instead, they
+q10_cm     =  0.96  // will be scaled when calling membrane.hoc using Q10 values
+                    // according to:
+                    // Trevelyan AJ, Jack JJB (2002), J Physiol 539:623-636
+                    // Note that these Q10 values have been obtained for LII/III
+                    // pyramidal cells, not for granule cells.
+                    // defaults:
+                    // celsius    = 24    (our recording temperature)
+                    // q10_g_pas  =  1.98 
+                    // q10_Ra     =  0.80 
+                    // q10_cm     =  0.96 
+

@@ -1,0 +1,243 @@
+// ----------------------------------------------------------------------------
+// membrane.hoc
+// loads the full cell morphology, inserts passive
+// membrane properties, corrects membrane resistance
+// and capacitance for spines, and corrects (roughly) 
+// for temperature if needed
+//
+// 2007-08-17, Christoph Schmidt-Hieber, University of Freiburg
+//
+// accompanies the publication:
+// Schmidt-Hieber C, Jonas P, Bischofberger J (2007)
+// Subthreshold Dendritic Signal Processing and Coincidence Detection 
+// in Dentate Gyrus Granule Cells. J Neurosci 27:8430-8441
+//
+// send bug reports and suggestions to christoph.schmidt-hieber@uni-freiburg.de
+//
+// 2007-08-31: adheres to NetworkReadyCell policy
+//
+// ----------------------------------------------------------------------------
+
+// load gui or stdrun:
+load_file("stdrun.hoc")
+
+load_file("./genutils.hoc")
+load_file("./calcSpines.hoc")
+load_file("./fixnseg.hoc")
+
+begintemplate cell_10
+
+public is_art, has_bleb, axon_diam0
+public init, topol, basic_shape, subsets, geom, biophys, geom_nseg, biophys_inhomo
+public synlist, x, y, z, position, connect2target
+public somaLoc,somaBorderLoc,blebLoc,distalDendLoc,proxDendLoc,synDendLoc,spineCount,n_sections,n_axon,n_soma
+public section, axon
+public all,den,axo,som
+
+external verbose,debug_mode,accuracy,calc_spines
+external q10_cm,q10_g_pas,q10_Ra,tempScale,geom_nseg_shared,lambda_f
+
+objref somaLoc,somaBorderLoc,blebLoc,distalDendLoc,proxDendLoc,synDendLoc,spineCount,this,synlist
+
+proc init() {
+    if (numarg() > 0) {
+        has_bleb = $1
+    } else {
+        has_bleb = 0
+    }
+    if (numarg() > 1) {
+        axon_diam0 = $2
+    } else {
+        axon_diam0 = 1.2
+    }
+    topol()
+    if (debug_mode) print "Loaded cell, n_sections=",n_sections
+    subsets()
+    geom()
+    biophys()
+    geom_nseg()
+    synlist = new List()
+    synapses()
+    x = y = z = 0 // only change via position
+}
+
+// dummy compartments, will be updated later:
+create axon[1], section[1], soma[1]
+
+proc init_spines() {local i
+    forall insert spines
+    for i=0,1 section[i] {scale_spines = 1.0}
+    for i=2,5 section[i] {scale_spines = 1.5}
+    for i=6,13 section[i] {scale_spines = 2.0}
+    for i=14,n_sections-1 section[i] {scale_spines = 2.5}
+}
+
+func fsigm() {
+    // $1: x
+    // $2: amplitude
+    // $3: center
+    // $4: slope
+    return $2-$2/(1.0+exp(($1-$3)/$4))
+}
+
+proc init_pas() {local Ra_soma, Ra_axon, i, dist
+    Ra_soma = 200
+    Ra_axon = 120
+    forall {
+	insert pas
+	e_pas=0
+	cm = 1.00 * tempScale(q10_cm) * scale_spines
+	g_pas = 2.5e-5 * tempScale(q10_g_pas) * scale_spines
+	Ra = 200.0 * tempScale(q10_Ra)
+    }
+    somaLoc.secRef.sec { distance(0,0) }
+    for i=0, n_axon-1 axon[i] {
+	dist = distance(0.5)
+	Ra = (Ra_soma - fsigm(dist, Ra_soma-Ra_axon, 100, 50)) * tempScale(q10_Ra) 
+    }
+}
+
+proc basic_shape() {local i, soma_rad, soma_lhalf, soma_part0, soma_part1, diam0, diam1, soma_diam0, delta, axon_diam1
+    n_sections = 2 + 4 + 8 + 16
+    create section[n_sections]
+    if (has_bleb == 1) {
+        n_axon = 7
+    } else {
+        n_axon = 9
+    }
+    create axon[n_axon]
+    // Set nseg to something > 1 so that
+    // the tapering works
+    for i=0, n_axon-1 axon[i] { nseg=5 }
+    n_soma = 21
+    create soma[n_soma]
+    
+    soma_rad = 5
+    soma_lhalf = 10
+    offset = 0.15 // offset to prevent soma from tapering too much
+    // elliptic soma:
+    for i=0, n_soma-1 soma[i] {
+	L = soma_lhalf * 2.0/n_soma
+	soma_part0 = (-1.0 + 2.0*(i+offset/2.0)/ (n_soma+offset) ) * soma_lhalf * 0.98
+	soma_part1 = (-1.0 + 2.0*(i+1+offset/2.0)/ (n_soma+offset) ) * soma_lhalf * 0.98
+	diam0 = sqrt((1 - soma_part0*soma_part0/ (soma_lhalf*soma_lhalf)) * soma_rad*soma_rad) * 2.0
+	diam1 = sqrt((1 - soma_part1*soma_part1/ (soma_lhalf*soma_lhalf)) * soma_rad*soma_rad) * 2.0
+	diam(0:1) = diam0:diam1
+	if (i==0) {
+            soma_diam0 = diam0
+        }
+    }
+    
+    axon[0] { diam(0:1)=soma_diam0:axon_diam0 L = 8 }
+    
+    // linear taper:
+    axon_diam1 = 0.3
+    delta = (axon_diam0-axon_diam1) / 20.0
+    for i=1,5 axon[i] {
+        L = 4 
+        diam(0:1)=axon_diam0-(i-1)*delta*L : axon_diam0-i*delta*L
+    }
+
+    if (has_bleb == 1) {
+	axon[6] { 
+            diam = 2.0
+            L = 2.0
+            blebLoc = new Location(0.0)
+        }
+	
+    } else {
+	axon[6] { 
+            diam = axon_diam1 L = 500
+            blebLoc = new Location(0.0)
+        }
+	// mfb
+	axon[7] { 
+            diam = 3.0 // 0.4
+            L = 3.0 // 3.0
+        }
+	axon[8] { diam = axon_diam1 L = 470 } 
+    }
+
+    for i=0,1 section[i]  { diam(0:1)=soma[n_soma-1].diam(1.0):2.0 L=20 }
+    for i=2,5 section[i]  { diam(0:1)=2.0:1.5 L=80 }
+    for i=6,13 section[i] { diam = 0.9 L=100 }
+    for i=14,n_sections-1 section[i] { diam=0.6 L=100 }
+    
+    // define soma:
+    soma[n_soma/2.0]  somaLoc = new Location(0.5)
+    soma[0] somaBorderLoc = new Location(0.0)
+
+    // define dendritic sites:
+    section[n_sections-1] distalDendLoc = new Location(0.8)
+    section[1] proxDendLoc = new Location(0.05)
+    section[n_sections-5] synDendLoc = new Location(0.8)
+    
+    access somaLoc.secRef.sec
+}
+
+proc topol() {local i
+    basic_shape()
+    for i=0,1 section[i] { connect section[i](0.0), soma[n_soma-1](1.0) }
+    for i=2,n_sections-1 section[i] { connect section[i](0.0), section[int((i-2)/2.0)](1.0) }
+    
+    for i=1, n_soma-1 soma[i] { connect soma[i](0.0), soma[i-1](1.0) }
+    
+    connect axon[0](0.0), soma[0](0.0)
+
+    for i=1, n_axon-1 axon[i] { connect axon[i](0.0), axon[i-1](1.0) }
+
+    init_spines()
+}
+
+objref all,den,axo,som
+proc subsets() {local i
+    all = new SectionList()
+    for i=0, n_sections-1 section[i] all.append()
+    for i=0, n_axon-1 axon[i] all.append()
+    for i=0, n_soma-1 soma[i] all.append()
+    den = new SectionList()
+    for i=0, n_sections-1 section[i] den.append()
+    axo = new SectionList()
+    for i=0, n_axon-1 axon[i] axo.append()
+    som = new SectionList()
+    for i=0, n_soma-1 soma[i] som.append()
+}
+
+proc geom() {
+}
+
+proc geom_nseg() {
+    geom_nseg_shared()
+    // increase nseg even further (tribute to Josef):
+    if (accuracy >= 1) {
+	forall nseg*=3
+    }
+}
+
+proc biophys() {
+    init_pas()
+}
+
+proc biophys_inhomo(){}
+
+proc position() { local i
+    somaLoc.secRef.sec for i = 0, n3d()-1 {
+	pt3dchange(i, $1-x+x3d(i), $2-y+y3d(i), $3-z+z3d(i), diam3d(i))
+    }
+    x = $1  y = $2  z = $3
+}
+
+obfunc connect2target() {localobj nc //$o1 target point process, optional $o2 returned NetCon
+    axon[0] nc = new NetCon(&v(0), $o1)
+    nc.threshold = 10
+    if (numarg() == 2) { $o2 = nc } // for backward compatibility
+    return nc
+}
+
+objref syn_
+proc synapses() {
+}
+
+func is_art() { return 0 }
+
+endtemplate cell_10
