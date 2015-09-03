@@ -9,10 +9,12 @@
 : axonal action potential initiation.
 : J Neurosci 30:10233-42
 
+: 11/05/2015 Arnd Roth: add scaling of kinetics with temperature
+
 NEURON {
     SUFFIX na8st
     USEION na READ ena WRITE ina
-    GLOBAL vShift, vShift_inact, maxrate
+    GLOBAL vShift, vShift_inact, maxrate, temp, q10, tadj
     RANGE vShift_inact_local
     RANGE g, gbar
     RANGE a1_0, a1_1, b1_0, b1_1, a2_0, a2_1
@@ -60,6 +62,9 @@ PARAMETER {
     vShift_inact_local = 0 (mV)  : additional shift to the right for inactivation, used as local range variable
     maxrate = 8.00e+03     (/ms) : limiting value for reaction rates
                                  : See Patlak, 1991
+    temp = 23 (degC)             : original temperature at which the experiments were done
+    q10 = 2.5 (1)                : temperature sensitivity, see Schmidt-Hieber & Bischofberger (2010) Supplemental Figure 8
+    celsius (degC)               : nominal temperature of the simulations, set from hoc or python
 }
 
 ASSIGNED {
@@ -75,6 +80,7 @@ ASSIGNED {
     b3   (/ms)
     ah   (/ms)
     bh   (/ms)
+    tadj (1)
 }
 
 STATE { c1 c2 c3 i1 i2 i3 i4 o }
@@ -107,25 +113,27 @@ KINETIC kin {
 
 PROCEDURE rates(v(millivolt)) {
     LOCAL vS
-    vS = v-vShift
+    vS = v-vShift : note that vShift is subtracted from v, not added to v (unlike trates(v+vshift) in na.mod)
+
+    tadj = q10^((celsius - temp)/10)
 
     a1 = a1_0*exp( a1_1*vS)
-    a1 = a1*maxrate / (a1+maxrate)
+    a1 = tadj*a1*maxrate / (a1+maxrate)
     b1 = b1_0*exp(-b1_1*vS)
-    b1 = b1*maxrate / (b1+maxrate)
+    b1 = tadj*b1*maxrate / (b1+maxrate)
     
     a2 = a2_0*exp( a2_1*vS)
-    a2 = a2*maxrate / (a2+maxrate)
+    a2 = tadj*a2*maxrate / (a2+maxrate)
     b2 = b2_0*exp(-b2_1*vS)
-    b2 = b2*maxrate / (b2+maxrate)
+    b2 = tadj*b2*maxrate / (b2+maxrate)
     
     a3 = a3_0*exp( a3_1*vS)
-    a3 = a3*maxrate / (a3+maxrate)
+    a3 = tadj*a3*maxrate / (a3+maxrate)
     b3 = b3_0*exp(-b3_1*vS)
-    b3 = b3*maxrate / (b3+maxrate)
+    b3 = tadj*b3*maxrate / (b3+maxrate)
     
     bh = bh_0/(1+bh_1*exp(-bh_2*(vS-vShift_inact-vShift_inact_local)))
-    bh = bh*maxrate / (bh+maxrate)
+    bh = tadj*bh*maxrate / (bh+maxrate)
     ah = ah_0/(1+ah_1*exp( ah_2*(vS-vShift_inact-vShift_inact_local)))
-    ah = ah*maxrate / (ah+maxrate)
+    ah = tadj*ah*maxrate / (ah+maxrate)
 }
