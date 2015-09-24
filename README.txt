@@ -52,6 +52,6 @@ na8st-1.1 (1.1)
 
  -- Christoph Schmidt-Hieber <c.schmidt-hieber@ucl.ac.uk>  Sun, 20 Oct 2011 13:41:23 +0000
 
-20150903 a patch (contributed by Arndt Roth and emailed by Christoph
+20150903 a patch (contributed by Arnd Roth and emailed by Christoph
 Schmidt-Hieber) that adds temperature dependence was applied to
 mod/na8st.mod.
