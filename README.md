@@ -61,6 +61,4 @@ na8st-1.1 (1.1)
 Schmidt-Hieber) that adds temperature dependence was applied to  
 mod/na8st.mod.
 
----
-
-2025-06-02: Converted README to Markdown.
+20250602 Converted README to Markdown.
